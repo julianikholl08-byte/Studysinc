@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudySync - Visual Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transition: transform 0.3s ease;
+        }
+        .glass-card:hover { transform: translateY(-2px); }
+        
+        .sidebar {
+            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(-105%);
+        }
+        .sidebar.active { transform: translateX(0); }
+        
+        #scannerModal, #idModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .page { display: none; animation: fadeIn 0.4s ease; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        
+        #qrcode img, #teacherGeneratedQR img { 
+            margin: 0 auto; 
+            border-radius: 12px; 
+            border: 8px solid white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* Gallery Grid */
+        .gallery-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .gallery-img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 12px;
+            background: #eee;
+        }
+    </style>
+</head>
+<body class="p-4 pb-24">
+
+    <!-- Sidebar dengan Gambar Profile -->
+    <div id="sidebar" class="sidebar fixed top-0 left-0 h-full w-72 glass-card z-[110] rounded-none p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-3">
+                <img src="https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=100&h=100&fit=crop" class="w-10 h-10 rounded-full border-2 border-blue-500 shadow-sm" alt="Logo">
+                <h2 class="font-black text-xl text-blue-600">STUDYSYNC</h2>
+            </div>
+            <button onclick="toggleSidebar()"><i class="fa-solid fa-xmark text-gray-400 text-xl"></i></button>
+        </div>
+        
+        <nav class="space-y-3">
+            <button onclick="showPage('dashboard')" class="w-full flex items-center p-4 hover:bg-blue-600 hover:text-white rounded-2xl transition font-bold text-gray-700 group">
+                <i class="fa-solid fa-house mr-4 group-hover:scale-110"></i> Dashboard
+            </button>
+            <button onclick="showPage('notes')" class="w-full flex items-center p-4 hover:bg-yellow-500 hover:text-white rounded-2xl transition font-bold text-gray-700 group">
+                <i class="fa-solid fa-note-sticky mr-4 group-hover:scale-110"></i> Catatan Pelajaran
+            </button>
+            <button onclick="showPage('gallery')" class="w-full flex items-center p-4 hover:bg-green-500 hover:text-white rounded-2xl transition font-bold text-gray-700 group">
+                <i class="fa-solid fa-images mr-4 group-hover:scale-110"></i> Galeri Inspirasi
+            </button>
+            <div class="border-t border-gray-200 my-4"></div>
+            <button onclick="showPage('teacher')" class="w-full flex items-center p-4 bg-slate-800 text-white rounded-2xl transition font-bold group shadow-lg">
+                <i class="fa-solid fa-chalkboard-user mr-4 text-blue-400 group-hover:rotate-12"></i> Mode Guru (QR)
+            </button>
+        </nav>
+
+        <!-- Dekorasi Bawah Sidebar -->
+        <div class="absolute bottom-6 left-6 right-6">
+            <img src="https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&h=200&fit=crop" class="rounded-xl w-full h-24 object-cover mb-2 opacity-80" alt="sidebar-decor">
+            <p class="text-[10px] text-gray-400 text-center font-bold uppercase italic tracking-tighter">"Knowledge is Power"</p>
+        </div>
+    </div>
+
+    <div class="max-w-md mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6 mt-2">
+            <button onclick="toggleSidebar()" class="glass-card p-4 text-blue-600 shadow-md">
+                <i class="fa-solid fa-bars-staggered text-lg"></i>
+            </button>
+            <div class="flex items-center gap-3">
+                <div class="text-right">
+                    <h1 class="text-xl font-black text-gray-800" onclick="editName()" id="userName">Pelajar</h1>
+                    <p id="currentDate" class="text-[10px] text-gray-500 font-bold uppercase tracking-widest"></p>
+                </div>
+                <img id="profilePic" src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=100&h=100&fit=crop" class="w-12 h-12 rounded-2xl border-2 border-white shadow-lg cursor-pointer" onclick="changeProfile()">
+            </div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page active">
+            <!-- Banner Motivasi (Gambar 1) -->
+            <div class="relative w-full h-36 rounded-3xl overflow-hidden mb-6 shadow-xl">
+                <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&fit=crop" class="w-full h-full object-cover" alt="Banner">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-5">
+                    <p class="text-white text-[10px] font-black uppercase tracking-widest mb-1">Motivasi Hari Ini</p>
+                    <h2 class="text-white font-bold text-sm leading-tight">Jangan pernah berhenti belajar, karena hidup tidak pernah berhenti mengajar.</h2>
+                </div>
+            </div>
+
+            <section class="mb-8">
+                <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Jadwal Hari Ini</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Jadwal Cards (Gambar 2-5 via background atau ikon) -->
+                    <div class="glass-card p-3 border-l-4 border-yellow-400 flex gap-3 items-center">
+                        <div class="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center text-yellow-600"><i class="fa-solid fa-calculator"></i></div>
+                        <div>
+                            <p class="text-[9px] font-bold text-yellow-600">07:30</p>
+                            <h3 class="font-bold text-gray-800 text-xs">MTK</h3>
+                        </div>
+                    </div>
+                    <div class="glass-card p-3 border-l-4 border-blue-400 flex gap-3 items-center">
+                        <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600"><i class="fa-solid fa-book"></i></div>
+                        <div>
+                            <p class="text-[9px] font-bold text-blue-600">09:15</p>
+                            <h3 class="font-bold text-gray-800 text-xs">English</h3>
+                        </div>
+                    </div>
+                    <div class="glass-card p-3 border-l-4 border-green-400 flex gap-3 items-center">
+                        <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-green-600"><i class="fa-solid fa-atom"></i></div>
+                        <div>
+                            <p class="text-[9px] font-bold text-green-600">11:00</p>
+                            <h3 class="font-bold text-gray-800 text-xs">Fisika</h3>
+                        </div>
+                    </div>
+                    <div class="glass-card p-3 border-l-4 border-purple-400 flex gap-3 items-center">
+                        <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600"><i class="fa-solid fa-landmark"></i></div>
+                        <div>
+                            <p class="text-[9px] font-bold text-purple-600">13:30</p>
+                            <h3 class="font-bold text-gray-800 text-xs">Sejarah</h3>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <button onclick="showID()" class="glass-card p-5 flex flex-col items-center justify-center text-blue-600 border-2 border-blue-100 shadow-lg hover:bg-blue-50 transition">
+                    <i class="fa-solid fa-qrcode text-3xl mb-2"></i>
+                    <span class="text-[10px] font-black uppercase">My Student ID</span>
+                </button>
+                <button onclick="startScanner()" class="glass-card p-5 flex flex-col items-center justify-center text-purple-600 border-2 border-purple-100 shadow-lg hover:bg-purple-50 transition">
+                    <i class="fa-solid fa-camera text-3xl mb-2"></i>
+                    <span class="text-[10px] font-black uppercase">Scan Guru</span>
+                </button>
+            </div>
+
+            <section class="mb-8">
+                <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1 flex justify-between items-center">
+                    Tugas & Deadline 🚨
+                    <span id="taskCount" class="bg-red-500 text-white px-2 py-0.5 rounded-full text-[8px]">0</span>
+                </h2>
+                <div id="taskList" class="space-y-3"></div>
+            </section>
+
+            <!-- Form Tambah Tugas -->
+            <section class="glass-card p-5 shadow-xl relative overflow-hidden">
+                <div class="absolute -right-10 -top-10 opacity-10 text-8xl text-blue-500 pointer-events-none rotate-12">
+                    <i class="fa-solid fa-file-pen"></i>
+                </div>
+                <h3 class="text-xs font-bold text-gray-700 mb-4 flex items-center"><i class="fa-solid fa-circle-plus mr-2 text-blue-500"></i>Tambah Tugas Manual</h3>
+                <input type="text" id="taskInput" placeholder="Nama tugas..." class="w-full p-3 rounded-xl mb-3 bg-white text-sm outline-none shadow-inner border border-gray-100">
+                <input type="date" id="dateInput" class="w-full p-3 rounded-xl mb-4 bg-white text-sm outline-none shadow-inner border border-gray-100">
+                <button onclick="addTask()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl active:scale-95 transition shadow-lg">SIMPAN TUGAS</button>
+            </section>
+        </div>
+
+        <!-- Notes Page -->
+        <div id="notesPage" class="page">
+            <h2 class="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-pen-nib text-yellow-500"></i> Catatan Pelajaran
+            </h2>
+            <div class="glass-card p-5 mb-6 shadow-xl">
+                <select id="noteSubject" class="w-full p-3 rounded-xl mb-3 bg-white text-xs font-bold shadow-sm border border-gray-100">
+                    <option value="Matematika">Matematika</option>
+                    <option value="B. Inggris">Bahasa Inggris</option>
+                    <option value="Fisika">Fisika</option>
+                    <option value="Sejarah">Sejarah</option>
+                    <option value="Umum">Umum</option>
+                </select>
+                <textarea id="noteInput" placeholder="Ketik inti pelajaran hari ini..." class="w-full h-32 p-4 bg-white rounded-xl text-sm outline-none mb-3 resize-none shadow-inner border border-gray-100"></textarea>
+                <button onclick="addNote()" class="w-full bg-yellow-500 text-white font-black py-4 rounded-xl shadow-lg">SIMPAN & DOWNLOAD (.TXT)</button>
+            </div>
+            <div id="notesList" class="space-y-4"></div>
+        </div>
+
+        <!-- Gallery Page (TAMPAT 30+ GAMBAR) -->
+        <div id="galleryPage" class="page">
+            <h2 class="text-2xl font-black text-gray-800 mb-2">Galeri Inspirasi 🎨</h2>
+            <p class="text-xs text-gray-500 mb-6 font-bold uppercase tracking-tighter italic">Kumpulan Gambar Motivasi Belajar</p>
+            
+            <div class="glass-card p-4 shadow-xl">
+                <div id="galleryGrid" class="gallery-container">
+                    <!-- Javascript akan mengisi 30 gambar di sini -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Teacher Page -->
+        <div id="teacherPage" class="page">
+            <h2 class="text-2xl font-black text-gray-800 mb-2">Panel Guru 👨‍🏫</h2>
+            <p class="text-xs text-gray-500 mb-6 font-bold uppercase tracking-widest italic">Generate QR Code untuk Siswa</p>
+            
+            <div class="glass-card p-6 shadow-2xl relative overflow-hidden">
+                <div class="absolute -left-12 -bottom-12 opacity-5 text-9xl text-slate-800 rotate-45 pointer-events-none">
+                    <i class="fa-solid fa-chalkboard"></i>
+                </div>
+                <div class="mb-4">
+                    <label class="text-[10px] font-black text-gray-500 uppercase ml-1">Mata Pelajaran / Tugas</label>
+                    <input type="text" id="teacherTaskTitle" placeholder="Contoh: Kuis Kimia Organik" class="w-full p-4 rounded-2xl mt-1 bg-white border border-gray-100 text-sm shadow-inner outline-none">
+                </div>
+                <div class="mb-6">
+                    <label class="text-[10px] font-black text-gray-500 uppercase ml-1">Deadline Pengumpulan</label>
+                    <input type="date" id="teacherTaskDeadline" class="w-full p-4 rounded-2xl mt-1 bg-white border border-gray-100 text-sm shadow-inner outline-none">
+                </div>
+                <button onclick="generateTeacherQR()" class="w-full bg-slate-800 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition mb-6">BUAT QR CODE TUGAS</button>
+                
+                <div id="teacherGeneratedQR" class="flex flex-col items-center"></div>
+                <p id="teacherStatus" class="text-center text-[10px] text-gray-400 mt-4 italic font-bold"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="idModal" onclick="closeID()">
+        <div class="glass-card p-8 w-80 text-center" onclick="event.stopPropagation()">
+            <div class="mb-4 relative inline-block">
+                <img id="modalProfile" src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=100&h=100&fit=crop" class="w-16 h-16 rounded-full mx-auto border-4 border-white shadow-md">
+                <div class="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+            </div>
+            <h2 class="font-black text-blue-600 mb-1 uppercase text-sm tracking-widest">Digital Student ID</h2>
+            <p id="qrLabel" class="mb-6 font-black text-gray-800 text-xl"></p>
+            <div id="qrcode"></div>
+            <p class="mt-6 text-[8px] text-gray-400 font-bold uppercase tracking-tighter">Scan untuk absensi atau data perpustakaan</p>
+            <button onclick="closeID()" class="mt-6 w-full bg-red-50 text-red-500 font-black py-3 rounded-xl text-xs uppercase tracking-widest">Tutup</button>
+        </div>
+    </div>
+
+    <div id="scannerModal">
+        <div class="w-full max-w-sm p-6 text-center">
+            <div class="glass-card p-2 mb-4 overflow-hidden">
+                <div id="reader" class="rounded-2xl overflow-hidden shadow-2xl"></div>
+            </div>
+            <p class="text-white text-[10px] font-bold uppercase mb-8 tracking-widest">Arahkan kamera ke QR Code Guru</p>
+            <button onclick="stopScanner()" class="bg-white/20 backdrop-blur-md text-white border border-white/30 px-10 py-4 rounded-full font-black uppercase text-xs">Batalkan</button>
+        </div>
+    </div>
+
+    <script>
+        let html5QrCode;
+
+        window.onload = function() {
+            // Load Name
+            const savedName = localStorage.getItem('studySyncUser') || 'Pelajar Hebat';
+            document.getElementById('userName').innerText = savedName;
+            
+            // Set Date
+            const options = { weekday: 'long', day: 'numeric', month: 'short' };
+            document.getElementById('currentDate').innerText = new Date().toLocaleDateString('id-ID', options);
+            
+            // Generate 30+ Images for Gallery
+            const galleryGrid = document.getElementById('galleryGrid');
+            for(let i=1; i<=30; i++) {
+                const img = document.createElement('img');
+                // Menggunakan random seed agar gambar berbeda
+                img.src = `https://picsum.photos/seed/${i + 100}/200/200`;
+                img.className = "gallery-img shadow-sm hover:scale-105 transition-all cursor-pointer";
+                img.alt = "Edu Image " + i;
+                img.onclick = () => alert("Gambar inspirasi #" + i);
+                galleryGrid.appendChild(img);
+            }
+
+            displayTasks();
+            displayNotes();
+        };
+
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id + 'Page').classList.add('active');
+            if(window.innerWidth < 768) toggleSidebar();
+        }
+
+        function editName() {
+            const n = prompt("Siapa namamu?", document.getElementById('userName').innerText);
+            if(n) { 
+                document.getElementById('userName').innerText = n; 
+                localStorage.setItem('studySyncUser', n); 
+            }
+        }
+
+        function changeProfile() {
+            const url = prompt("Masukkan URL foto barumu (dari Unsplash/Google):");
+            if(url) {
+                document.getElementById('profilePic').src = url;
+                document.getElementById('modalProfile').src = url;
+            }
+        }
+
+        // QR SISWA
+        function showID() {
+            const name = document.getElementById('userName').innerText;
+            document.getElementById('qrLabel').innerText = name;
+            document.getElementById('qrcode').innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), { 
+                text: "STUDENT_ID:" + name, 
+                width: 180, 
+                height: 180, 
+                colorDark : "#2563eb",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+            document.getElementById('idModal').style.display = 'flex';
+        }
+        function closeID() { document.getElementById('idModal').style.display = 'none'; }
+
+        // SCANNER
+        function startScanner() {
+            document.getElementById('scannerModal').style.display = 'flex';
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 220 },
+                msg => {
+                    if(msg.startsWith("TUGAS:")) {
+                        const d = msg.split(":");
+                        saveTask(d[1], d[2]);
+                        alert("Hooray! Tugas baru '" + d[1] + "' berhasil ditambahkan secara otomatis.");
+                        stopScanner();
+                    }
+                }
+            ).catch(err => alert("Kamera error. Pastikan izin kamera aktif!"));
+        }
+        function stopScanner() { 
+            if(html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('scannerModal').style.display = 'none';
+                });
+            } else {
+                document.getElementById('scannerModal').style.display = 'none';
+            }
+        }
+
+        // TUGAS LOGIC
+        function addTask() {
+            const n = document.getElementById('taskInput').value;
+            const d = document.getElementById('dateInput').value;
+            if(n && d) { 
+                saveTask(n, d); 
+                document.getElementById('taskInput').value = ""; 
+                document.getElementById('dateInput').value = "";
+            } else {
+                alert("Isi nama tugas dan tanggal dulu ya!");
+            }
+        }
+        function saveTask(name, date) {
+            const t = JSON.parse(localStorage.getItem('studyTasks') || '[]');
+            t.unshift({ name, date, id: Date.now() });
+            localStorage.setItem('studyTasks', JSON.stringify(t));
+            displayTasks();
+        }
+        function displayTasks() {
+            const list = document.getElementById('taskList');
+            const tasks = JSON.parse(localStorage.getItem('studyTasks') || '[]');
+            document.getElementById('taskCount').innerText = tasks.length;
+            
+            list.innerHTML = tasks.map(t => `
+                <div class="glass-card p-4 flex justify-between items-center border-l-8 border-red-500 shadow-sm animate-fadeIn">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500 text-xs">
+                           <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs text-gray-800">${t.name}</h4>
+                            <p class="text-[9px] text-red-500 font-black uppercase mt-1 italic tracking-widest">Batas: ${t.date}</p>
+                        </div>
+                    </div>
+                    <button onclick="deleteTask(${t.id})" class="text-green-500 hover:scale-125 transition-all">
+                        <i class="fa-solid fa-circle-check text-2xl"></i>
+                    </button>
+                </div>
+            `).join('') || '<div class="text-center py-8 opacity-40"><i class="fa-solid fa-mug-hot text-3xl mb-2"></i><p class="text-[10px] font-bold italic">Semua tugas beres! Waktunya santai.</p></div>';
+        }
+        function deleteTask(id) {
+            let t = JSON.parse(localStorage.getItem('studyTasks') || '[]');
+            localStorage.setItem('studyTasks', JSON.stringify(t.filter(x => x.id !== id)));
+            displayTasks();
+        }
+
+        // CATATAN LOGIC
+        const colors = { 
+            'Matematika': 'border-yellow-400', 
+            'B. Inggris': 'border-blue-400', 
+            'Fisika': 'border-green-400', 
+            'Sejarah': 'border-purple-400', 
+            'Umum': 'border-gray-500' 
+        };
+        function addNote() {
+            const s = document.getElementById('noteSubject').value;
+            const c = document.getElementById('noteInput').value;
+            if(!c) return alert("Catatan masih kosong!");
+            
+            const n = JSON.parse(localStorage.getItem('studyNotes') || '[]');
+            const newNote = { s, c, d: new Date().toLocaleString('id-ID'), id: Date.now() };
+            n.unshift(newNote);
+            localStorage.setItem('studyNotes', JSON.stringify(n));
+            
+            // Download logic
+            const blob = new Blob([`Subjek: ${s}\nWaktu: ${newNote.d}\n------------------\n${c}`], { type: "text/plain" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Catatan_${s}_${Date.now()}.txt`;
+            link.click();
+            
+            document.getElementById('noteInput').value = "";
+            displayNotes();
+        }
+        function displayNotes() {
+            const list = document.getElementById('notesList');
+            const notes = JSON.parse(localStorage.getItem('studyNotes') || '[]');
+            list.innerHTML = notes.map(n => `
+                <div class="glass-card p-5 border-l-[12px] ${colors[n.s] || 'border-gray-300'} shadow-md">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-[10px] font-black text-white bg-gray-800 px-3 py-1 rounded-full uppercase tracking-tighter">${n.s}</span>
+                        <span class="text-[8px] text-gray-400 font-bold">${n.d}</span>
+                    </div>
+                    <p class="text-xs text-gray-700 leading-relaxed font-medium whitespace-pre-wrap">${n.c}</p>
+                    <div class="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                        <button onclick="deleteNote(${n.id})" class="text-[9px] text-red-400 font-black hover:underline tracking-widest uppercase">Hapus Permanen</button>
+                    </div>
+                </div>
+            `).join('') || '<p class="text-center py-10 text-[10px] text-gray-400 italic font-bold">Belum ada catatan yang disimpan.</p>';
+        }
+        function deleteNote(id) {
+            if(confirm("Hapus catatan ini?")) {
+                let n = JSON.parse(localStorage.getItem('studyNotes') || '[]');
+                localStorage.setItem('studyNotes', JSON.stringify(n.filter(x => x.id !== id)));
+                displayNotes();
+            }
+        }
+
+        // TEACHER PANEL LOGIC
+        function generateTeacherQR() {
+            const title = document.getElementById('teacherTaskTitle').value;
+            const deadline = document.getElementById('teacherTaskDeadline').value;
+            const container = document.getElementById('teacherGeneratedQR');
+            const status = document.getElementById('teacherStatus');
+
+            if(!title || !deadline) return alert("Pak/Bu Guru, mohon isi Judul Tugas & Deadline dulu ya!");
+
+            container.innerHTML = "";
+            new QRCode(container, {
+                text: `TUGAS:${title}:${deadline}`,
+                width: 220, 
+                height: 220,
+                colorDark : "#1e293b",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+            status.innerText = "QR Code Siap! Silakan tampilkan di layar atau cetak untuk di-scan siswa.";
+            status.className = "text-center text-[10px] text-green-600 mt-4 italic font-black uppercase tracking-widest";
+        }
+    </script>
+</body>
+</html>
